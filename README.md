@@ -86,7 +86,6 @@ flowchart TD
 backend/    Express API, services, bootstrap, migrations
 frontend/   React app (user + admin interfaces)
 shared/     Shared contracts/types (placeholder)
-docs/       Notes
 ```
 
 ## Features Implemented
