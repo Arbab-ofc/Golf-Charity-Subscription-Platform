@@ -157,10 +157,14 @@ export default function DashboardPage() {
   const handleSubscriptionAction = async () => {
     try {
       setBusyAction('subscription');
-      const result = subscription?.isActive
-        ? await subscriptionApi.cancel(token)
-        : await subscriptionApi.remove(token);
-      toast.success(result.message || (subscription?.isActive ? 'Subscription cancelled' : 'Subscription removed'));
+      if (subscription?.isActive) {
+        const cancelResult = await subscriptionApi.cancel(token);
+        const removeResult = await subscriptionApi.remove(token);
+        toast.success(removeResult.message || cancelResult.message || 'Subscription cancelled and removed');
+      } else {
+        const result = await subscriptionApi.remove(token);
+        toast.success(result.message || 'Subscription removed');
+      }
       await loadDashboardData();
     } catch (error) {
       toast.error(error?.response?.data?.message || 'Unable to update subscription');

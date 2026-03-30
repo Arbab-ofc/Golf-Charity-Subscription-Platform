@@ -20,8 +20,9 @@ function RouteLoader() {
 }
 
 function PrivateRoute({ children }) {
-  const { user, loading } = useAuth();
+  const { user, token, loading } = useAuth();
   if (loading) return <RouteLoader />;
+  if (token && !user) return children;
   if (!user) return <Navigate to="/login" replace />;
   return children;
 }

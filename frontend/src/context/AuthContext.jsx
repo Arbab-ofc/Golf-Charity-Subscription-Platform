@@ -29,10 +29,14 @@ export function AuthProvider({ children }) {
     authApi
       .me(token)
       .then((response) => setUser(response.user))
-      .catch(() => {
-        localStorage.removeItem('auth_token');
-        setToken(null);
-        setUser(null);
+      .catch((error) => {
+        const status = error?.response?.status;
+        if (status === 401 || status === 403) {
+          localStorage.removeItem('auth_token');
+          setToken(null);
+          setUser(null);
+          return;
+        }
       })
       .finally(() => setLoading(false));
   }, [token]);
