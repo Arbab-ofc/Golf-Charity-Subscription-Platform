@@ -19,6 +19,18 @@ Full-stack monorepo for a subscription golf platform that combines:
 - charity selection and independent donations
 - admin operations panel
 
+## Live Access
+
+| Service | URL |
+|---|---|
+| Frontend (Primary) | `https://golf-charity-subscription-platform-hazel.vercel.app` |
+| Frontend (Deployment) | `https://golf-charity-subscription-platform-lw7owc1e7.vercel.app` |
+| Backend Base | `https://golf-charity-backend-a7mw.onrender.com` |
+| Backend Health | `https://golf-charity-backend-a7mw.onrender.com/health` |
+| Backend API Base | `https://golf-charity-backend-a7mw.onrender.com/api` |
+
+> Tip: Use the **Primary Frontend URL** for testing and demos.
+
 ## GitHub Repository
 
 - Repo URL: `https://github.com/Arbab-ofc/Golf-Charity-Subscription-Platform`
@@ -40,6 +52,12 @@ flowchart LR
   B --> P[Stripe]
   B --> N[Notification Hooks]
 ```
+
+### Quick Entry Points
+
+- User Dashboard: `https://golf-charity-subscription-platform-hazel.vercel.app/dashboard`
+- Admin Panel: `https://golf-charity-subscription-platform-hazel.vercel.app/admin`
+- API Health Check: `https://golf-charity-backend-a7mw.onrender.com/health`
 
 ## Workflow Map
 
@@ -146,6 +164,11 @@ These are auto-synced/created on backend startup.
 - Email: `user@gmail.com`
 - Password: `User@123`
 - Access: `/dashboard`
+
+### Fast Login URLs
+
+- Login: `https://golf-charity-subscription-platform-hazel.vercel.app/login`
+- Signup: `https://golf-charity-subscription-platform-hazel.vercel.app/signup`
 
 ## Setup Guide
 
