@@ -11,6 +11,12 @@
   <img alt="Tailwind" src="https://img.shields.io/badge/TailwindCSS-4.x-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white" />
 </p>
 
+<p align="left">
+  <a href="https://golf-charity-subscription-platform-hazel.vercel.app"><img alt="Live Frontend" src="https://img.shields.io/badge/Live-Frontend-00C7B7?style=for-the-badge&logo=vercel&logoColor=white" /></a>
+  <a href="https://golf-charity-backend-a7mw.onrender.com"><img alt="Live Backend" src="https://img.shields.io/badge/Live-Backend-46E3B7?style=for-the-badge&logo=render&logoColor=111" /></a>
+  <a href="https://golf-charity-backend-a7mw.onrender.com/health"><img alt="Backend Health" src="https://img.shields.io/badge/Health-OK-16a34a?style=for-the-badge&logo=checkmarx&logoColor=white" /></a>
+</p>
+
 Full-stack monorepo for a subscription golf platform that combines:
 
 - score tracking (latest 5 Stableford scores)
