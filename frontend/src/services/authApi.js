@@ -5,8 +5,8 @@ export const authApi = {
     const { data } = await apiClient.post('/auth/login', { email, password });
     return data;
   },
-  async signup(email, password, fullName) {
-    const { data } = await apiClient.post('/auth/signup', { email, password, fullName });
+  async signup(email, password, fullName, charityId = null, charityPercentage = null) {
+    const { data } = await apiClient.post('/auth/signup', { email, password, fullName, charityId, charityPercentage });
     return data;
   },
   async me(token) {

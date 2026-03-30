@@ -6,6 +6,7 @@ import {
   getWinnerById,
   getWinnersByDraw,
   markPayoutPaid,
+  submitWinnerProof,
   verifyWinner,
 } from '../services/winnerService.js';
 
@@ -35,6 +36,12 @@ router.patch('/:winnerId/verify', requireAdmin, asyncHandler(async (req, res) =>
 router.patch('/:winnerId/payout', requireAdmin, asyncHandler(async (req, res) => {
   const winner = await markPayoutPaid(req.params.winnerId);
   res.status(200).json({ winner, message: 'Winner marked as paid' });
+}));
+
+router.patch('/:winnerId/proof', requireAuth, asyncHandler(async (req, res) => {
+  const { proofUrl } = req.body;
+  const winner = await submitWinnerProof(req.params.winnerId, req.user.id, proofUrl);
+  res.status(200).json({ winner, message: 'Proof URL submitted' });
 }));
 
 export default router;

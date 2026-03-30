@@ -1,8 +1,10 @@
 import { queryBuilder } from '../config/supabase.js';
 import { ApiError } from '../utils/apiError.js';
+import { matchScores } from '../utils/drawMatching.js';
 
 const DRAW_RANGE_MIN = 1;
 const DRAW_RANGE_MAX = 45;
+const REQUIRED_SCORES = 5;
 
 const randomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
@@ -54,8 +56,6 @@ export const generateDraw = async (drawLogic = 'random') => {
   return generateWeightedNumbers(freqMap);
 };
 
-const matchScores = (userScores, winningNumbers) => userScores.filter((x) => winningNumbers.includes(x)).length;
-
 const getActiveSubscribers = async () => {
   const subs = await queryBuilder('subscriptions').select('user_id,plan_type,status').eq('status', 'active');
   return subs.data || [];
@@ -99,9 +99,13 @@ export const simulateDraw = async (drawLogic = 'random') => {
 
   const winners = [];
   const winnersByType = { 3: 0, 4: 0, 5: 0 };
+  let eligibleParticipants = 0;
 
   for (const sub of subscribers) {
     const scores = scoreMap.get(sub.user_id) || [];
+    if (scores.length < REQUIRED_SCORES) continue;
+    eligibleParticipants += 1;
+
     const matches = matchScores(scores, winningNumbers);
     if (matches >= 3) {
       winners.push({ userId: sub.user_id, matchType: matches, scores });
@@ -120,6 +124,8 @@ export const simulateDraw = async (drawLogic = 'random') => {
     winningNumbers,
     winners,
     winnersByType,
+    eligibleParticipants,
+    skippedParticipants: subscribers.length - eligibleParticipants,
     prizeBreakdown: prize.breakdown,
     totalPrizePool,
   };
@@ -194,11 +200,13 @@ export const checkUserMatches = async (userId, drawId) => {
 
   const scores = await queryBuilder('scores').select('score').eq('user_id', userId).order('played_at', { ascending: false }).limit(5);
   const userScores = (scores.data || []).map((x) => x.score);
+  const eligibleForDraw = userScores.length >= REQUIRED_SCORES;
 
-  const matchCount = matchScores(userScores, draw.data.winning_numbers || []);
+  const matchCount = eligibleForDraw ? matchScores(userScores, draw.data.winning_numbers || []) : 0;
   const win = await queryBuilder('winners').select('*').eq('user_id', userId).eq('draw_id', drawId).maybeSingle();
 
   return {
+    eligibleForDraw,
     matchCount,
     prize: win.data?.prize_amount || 0,
     userScores,

@@ -10,6 +10,15 @@ import { adminApi } from '../services/adminApi.js';
 
 export default function AdminPage() {
   const { token } = useAuth();
+  const maskEmail = (value) => {
+    const email = String(value || '');
+    const at = email.indexOf('@');
+    if (at <= 2) return email;
+    const local = email.slice(0, at);
+    const domain = email.slice(at);
+    if (local.length <= 6) return `${local.slice(0, 2)}...${domain}`;
+    return `${local.slice(0, 6)}...${domain}`;
+  };
 
   const [drawLogic, setDrawLogic] = useState('random');
   const [simulation, setSimulation] = useState(null);
@@ -49,7 +58,10 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
-    loadAdminData();
+    (async () => {
+      await loadAdminData();
+      await loadWinnersByDraw();
+    })();
   }, [token]);
 
   const runSimulation = async () => {
@@ -106,7 +118,19 @@ export default function AdminPage() {
 
   const loadWinnersByDraw = async () => {
     try {
-      const data = await winnerApi.byDraw(drawIdForWinners);
+      let targetDrawId = (drawIdForWinners || '').trim();
+      if (!targetDrawId) {
+        const current = await drawApi.current().catch(() => null);
+        targetDrawId = current?.draw?.id || '';
+        if (targetDrawId) setDrawIdForWinners(targetDrawId);
+      }
+
+      if (!targetDrawId) {
+        setWinners([]);
+        return;
+      }
+
+      const data = await winnerApi.byDraw(targetDrawId);
       setWinners(data.winners || []);
     } catch (error) {
       toast.error(error?.response?.data?.message || 'Unable to load winners');
@@ -234,16 +258,29 @@ export default function AdminPage() {
 
           <div className="mt-4 space-y-2">
             {winners.map((winner) => (
+              (() => {
+                const isApproved = winner.verification_status === 'approved';
+                const isPaid = winner.payout_status === 'paid';
+
+                return (
               <div key={winner.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm">
                 <span>
                   {winner?.users?.email || winner.user_id} · Match {winner.match_type} · Prize {winner.prize_amount} · {winner.verification_status} · {winner.payout_status}
                 </span>
                 <div className="flex gap-2">
-                  <button className="btn-secondary" onClick={() => verifyWinner(winner.id, 'approved')}>Approve</button>
-                  <button className="btn-secondary" onClick={() => verifyWinner(winner.id, 'rejected')}>Reject</button>
-                  <button className="btn-secondary" onClick={() => payoutWinner(winner.id)}>Mark Paid</button>
+                  {!isApproved && !isPaid ? (
+                    <button className="btn-secondary" onClick={() => verifyWinner(winner.id, 'approved')}>Approve</button>
+                  ) : null}
+                  {!isPaid ? (
+                    <button className="btn-secondary" onClick={() => verifyWinner(winner.id, 'rejected')}>Reject</button>
+                  ) : null}
+                  {isApproved && !isPaid ? (
+                    <button className="btn-secondary" onClick={() => payoutWinner(winner.id)}>Mark Paid</button>
+                  ) : null}
                 </div>
               </div>
+                );
+              })()
             ))}
           </div>
         </div>
@@ -254,7 +291,9 @@ export default function AdminPage() {
             <div className="mt-4 space-y-2">
               {users.slice(0, 20).map((u) => (
                 <div key={u.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm">
-                  <span>{u.email} · {u.is_admin ? 'Admin' : 'User'}</span>
+                  <span className="min-w-0 flex-1 truncate" title={`${u.email} · ${u.is_admin ? 'Admin' : 'User'}`}>
+                    {maskEmail(u.email)} · {u.is_admin ? 'Admin' : 'User'}
+                  </span>
                   <button className="btn-secondary" onClick={() => toggleUserAdmin(u)}>
                     {u.is_admin ? 'Make User' : 'Make Admin'}
                   </button>
@@ -268,7 +307,12 @@ export default function AdminPage() {
             <div className="mt-4 space-y-2">
               {subscriptions.slice(0, 20).map((sub) => (
                 <div key={sub.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm">
-                  <span>{sub?.users?.email || sub.user_id} · {sub.plan_type} · {sub.status}</span>
+                  <span
+                    className="min-w-0 flex-1 truncate"
+                    title={`${sub?.users?.email || sub.user_id} · ${sub.plan_type} · ${sub.status}`}
+                  >
+                    {maskEmail(sub?.users?.email || sub.user_id)} · {sub.plan_type} · {sub.status}
+                  </span>
                   <button className="btn-secondary" onClick={() => markSubscriptionInactive(sub)}>Mark Inactive</button>
                 </div>
               ))}

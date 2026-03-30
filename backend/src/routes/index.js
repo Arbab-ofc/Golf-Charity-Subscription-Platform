@@ -7,6 +7,7 @@ import charityRoutes from './charityRoutes.js';
 import drawRoutes from './drawRoutes.js';
 import winnerRoutes from './winnerRoutes.js';
 import adminRoutes from './adminRoutes.js';
+import donationRoutes from './donationRoutes.js';
 import { processStripeEvent, verifyWebhookSignature } from '../middleware/stripeWebhook.js';
 
 const router = Router();
@@ -27,6 +28,7 @@ router.use('/scores', scoreRoutes);
 router.use('/charities', charityRoutes);
 router.use('/draws', drawRoutes);
 router.use('/winners', winnerRoutes);
+router.use('/donations', donationRoutes);
 router.use('/admin', adminRoutes);
 
 export default router;

@@ -4,6 +4,7 @@ import { env } from '../config/env.js';
 import { getSupabaseAdmin, queryBuilder } from '../config/supabase.js';
 import { ApiError } from '../utils/apiError.js';
 import { parseOrThrow, signupSchema, loginSchema } from '../utils/validators.js';
+import { sendSignupWelcomeEmail } from './notificationService.js';
 
 const issueToken = (userId, email, isAdmin) =>
   jwt.sign({ email, isAdmin }, env.JWT_SECRET, {
@@ -11,8 +12,8 @@ const issueToken = (userId, email, isAdmin) =>
     expiresIn: env.JWT_EXPIRES_IN,
   });
 
-export const signupUser = async (email, password, fullName) => {
-  const payload = parseOrThrow(signupSchema, { email, password, fullName });
+export const signupUser = async (email, password, fullName, charityId = null, charityPercentage = null) => {
+  const payload = parseOrThrow(signupSchema, { email, password, fullName, charityId: charityId || undefined, charityPercentage: charityPercentage ?? undefined });
   const supabase = getSupabaseAdmin();
 
   const existing = await queryBuilder('users').select('id').eq('email', payload.email).maybeSingle();
@@ -40,6 +41,21 @@ export const signupUser = async (email, password, fullName) => {
     .single();
 
   if (profileError) throw new ApiError(400, profileError.message);
+
+  if (payload.charityId) {
+    const charity = await queryBuilder('charities').select('id').eq('id', payload.charityId).maybeSingle();
+    if (!charity.data) throw new ApiError(400, 'Selected charity not found');
+
+    const charityLink = await queryBuilder('user_charities').upsert({
+      user_id: profile.id,
+      charity_id: payload.charityId,
+      contribution_percentage: payload.charityPercentage || 10,
+      updated_at: new Date().toISOString(),
+    });
+    if (charityLink.error) throw new ApiError(400, charityLink.error.message);
+  }
+
+  sendSignupWelcomeEmail(profile.email, profile.full_name).catch(() => {});
 
   const token = issueToken(profile.id, profile.email, profile.is_admin);
   return { user: profile, token };

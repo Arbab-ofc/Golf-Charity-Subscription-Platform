@@ -1,9 +1,15 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext.jsx';
 
 export default function Layout({ children }) {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   return (
     <div className="min-h-screen bg-radial text-slate-100">
@@ -15,6 +21,7 @@ export default function Layout({ children }) {
             <>
               <Link to="/dashboard">Dashboard</Link>
               {user?.is_admin ? <Link to="/admin">Admin</Link> : null}
+              <button type="button" onClick={handleLogout}>Logout</button>
             </>
           ) : (
             <>

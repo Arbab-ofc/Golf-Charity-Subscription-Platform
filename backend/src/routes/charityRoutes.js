@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { asyncHandler } from '../utils/asyncHandler.js';
-import { requireAdmin, requireSubscription } from '../middleware/auth.js';
+import { requireAdmin, requireAuth } from '../middleware/auth.js';
 import {
   createCharity,
   deleteCharity,
@@ -28,12 +28,12 @@ router.get('/featured', asyncHandler(async (_req, res) => {
   res.status(200).json({ charities: data.charities });
 }));
 
-router.get('/my-charity', requireSubscription, asyncHandler(async (req, res) => {
+router.get('/my-charity', requireAuth, asyncHandler(async (req, res) => {
   const data = await getUserCharity(req.user.id);
   res.status(200).json(data);
 }));
 
-router.post('/my-charity', requireSubscription, asyncHandler(async (req, res) => {
+router.post('/my-charity', requireAuth, asyncHandler(async (req, res) => {
   const { charityId, percentage } = req.body;
   const data = await setUserCharity(req.user.id, charityId, percentage);
   res.status(200).json({ ...data, message: 'My charity updated' });

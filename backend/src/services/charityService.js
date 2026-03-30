@@ -1,5 +1,6 @@
 import { queryBuilder } from '../config/supabase.js';
 import { ApiError } from '../utils/apiError.js';
+import { isUuid } from '../utils/ids.js';
 
 const cache = { value: null, expiresAt: 0 };
 const CACHE_TTL_MS = 5 * 60 * 1000;
@@ -49,7 +50,7 @@ export const getAllCharities = async ({ page = 1, featured = false, search = '' 
     pageSize,
   };
 
-  if (!featured && !search) {
+  if (!featured && !search && (result.data || []).length > 0) {
     cache.value = payload;
     cache.expiresAt = now + CACHE_TTL_MS;
   }
@@ -105,6 +106,8 @@ export const setFeaturedCharity = async (charityId, featured) => {
 };
 
 export const getUserCharity = async (userId) => {
+  if (!isUuid(userId)) throw new ApiError(401, 'Invalid authenticated user');
+
   const result = await queryBuilder('user_charities')
     .select('contribution_percentage,charities(*)')
     .eq('user_id', userId)
@@ -116,15 +119,10 @@ export const getUserCharity = async (userId) => {
 };
 
 export const setUserCharity = async (userId, charityId, percentage) => {
-  const validPercentage = validatePercentage(percentage);
+  if (!isUuid(userId)) throw new ApiError(401, 'Invalid authenticated user');
+  if (!isUuid(charityId)) throw new ApiError(400, 'Valid charityId is required');
 
-  const subscription = await queryBuilder('subscriptions')
-    .select('id,status')
-    .eq('user_id', userId)
-    .eq('status', 'active')
-    .limit(1)
-    .maybeSingle();
-  if (!subscription.data) throw new ApiError(403, 'Active subscription required');
+  const validPercentage = validatePercentage(percentage);
 
   const result = await queryBuilder('user_charities').upsert({
     user_id: userId,

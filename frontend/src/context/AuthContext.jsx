@@ -2,10 +2,22 @@ import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { authApi } from '../services/authApi.js';
 
 const AuthContext = createContext(null);
+const readStoredToken = () => {
+  const raw = localStorage.getItem('auth_token');
+  if (!raw || raw === 'null' || raw === 'undefined') {
+    localStorage.removeItem('auth_token');
+    return null;
+  }
+  if (raw.split('.').length !== 3) {
+    localStorage.removeItem('auth_token');
+    return null;
+  }
+  return raw;
+};
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(localStorage.getItem('auth_token'));
+  const [token, setToken] = useState(readStoredToken);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -37,8 +49,8 @@ export function AuthProvider({ children }) {
         setUser(result.user);
         return result;
       },
-      async signup(email, password, fullName) {
-        const result = await authApi.signup(email, password, fullName);
+      async signup(email, password, fullName, charityId = null, charityPercentage = null) {
+        const result = await authApi.signup(email, password, fullName, charityId, charityPercentage);
         localStorage.setItem('auth_token', result.token);
         setToken(result.token);
         setUser(result.user);

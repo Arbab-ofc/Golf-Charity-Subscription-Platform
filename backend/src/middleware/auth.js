@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken';
 import { env } from '../config/env.js';
 import { ApiError } from '../utils/apiError.js';
 import { queryBuilder } from '../config/supabase.js';
+import { isUuid } from '../utils/ids.js';
 
 const extractToken = (req) => {
   const header = req.headers.authorization || '';
@@ -15,6 +16,7 @@ export const verifyToken = async (req, _res, next) => {
     if (!token) throw new ApiError(401, 'Missing bearer token');
 
     const payload = jwt.verify(token, env.JWT_SECRET);
+    if (!isUuid(payload?.sub)) throw new ApiError(401, 'Invalid token subject');
 
     const user = await queryBuilder('users').select('*').eq('id', payload.sub).single();
     if (user.error || !user.data) throw new ApiError(401, 'User not found');
@@ -39,6 +41,8 @@ export const requireAdmin = [
 export const requireSubscription = [
   verifyToken,
   async (req, _res, next) => {
+    if (!isUuid(req.user?.id)) return next(new ApiError(401, 'Invalid authenticated user'));
+
     const result = await queryBuilder('subscriptions')
       .select('*')
       .eq('user_id', req.user.id)

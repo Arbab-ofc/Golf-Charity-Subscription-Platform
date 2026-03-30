@@ -22,8 +22,8 @@ const loginLimiter = rateLimit({
 router.post(
   '/signup',
   asyncHandler(async (req, res) => {
-    const { email, password, fullName } = req.body;
-    const result = await signupUser(email, password, fullName);
+    const { email, password, fullName, charityId, charityPercentage } = req.body;
+    const result = await signupUser(email, password, fullName, charityId, charityPercentage);
     res.status(201).json({ ...result, message: 'User created successfully' });
   })
 );

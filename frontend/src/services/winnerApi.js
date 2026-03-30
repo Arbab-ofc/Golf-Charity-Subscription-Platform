@@ -17,4 +17,8 @@ export const winnerApi = {
     const { data } = await apiClient.patch(`/winners/${winnerId}/payout`, {}, withAuth(token));
     return data;
   },
+  async submitProof(token, winnerId, proofUrl) {
+    const { data } = await apiClient.patch(`/winners/${winnerId}/proof`, { proofUrl }, withAuth(token));
+    return data;
+  },
 };

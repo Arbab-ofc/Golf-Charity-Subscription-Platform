@@ -18,6 +18,7 @@ import { scoreApi } from '../services/scoreApi.js';
 import { charityApi } from '../services/charityApi.js';
 import { drawApi } from '../services/drawApi.js';
 import { winnerApi } from '../services/winnerApi.js';
+import { donationApi } from '../services/donationApi.js';
 
 const formatSimpleDate = (value) => {
   if (!value) return 'N/A';
@@ -60,15 +61,12 @@ export default function DashboardPage() {
   const [myDraws, setMyDraws] = useState([]);
   const [currentDraw, setCurrentDraw] = useState(null);
   const [winnings, setWinnings] = useState({ winnings: [], totalWinnings: 0, count: 0 });
-
-  const isNoSubscriptionState =
-    subscription &&
-    subscription.isActive === false &&
-    !subscription.status &&
-    !subscription.planType &&
-    !subscription.expiresAt;
+  const [donations, setDonations] = useState({ donations: [], totalAmount: 0, count: 0 });
+  const [donationForm, setDonationForm] = useState({ charityId: '', amount: '', note: '' });
+  const [proofByWinnerId, setProofByWinnerId] = useState({});
 
   const canUseSubscriberFeatures = Boolean(subscription?.isActive);
+  const hasSubscriptionRecord = Boolean(subscription && (subscription.status || subscription.planType || subscription.expiresAt));
 
   const loadSubscriptionStatus = async () => {
     if (!token) return;
@@ -85,13 +83,14 @@ export default function DashboardPage() {
 
     await loadSubscriptionStatus();
 
-    const [scoreData, charityData, myCharityData, drawData, currentDrawData, winningsData] = await Promise.all([
+    const [scoreData, charityData, myCharityData, drawData, currentDrawData, winningsData, donationData] = await Promise.all([
       scoreApi.list(token).catch(() => null),
       charityApi.list(false, '').catch(() => null),
       charityApi.myCharity(token).catch(() => null),
       drawApi.myDraws(token).catch(() => null),
       drawApi.current().catch(() => null),
       winnerApi.me(token).catch(() => null),
+      donationApi.mine(token).catch(() => null),
     ]);
 
     if (scoreData?.scores) {
@@ -103,6 +102,9 @@ export default function DashboardPage() {
       setCharities(charityData.charities);
       if (!charitySelection.charityId && charityData.charities[0]?.id) {
         setCharitySelection((prev) => ({ ...prev, charityId: charityData.charities[0].id }));
+      }
+      if (!donationForm.charityId && charityData.charities[0]?.id) {
+        setDonationForm((prev) => ({ ...prev, charityId: charityData.charities[0].id }));
       }
     }
 
@@ -120,6 +122,7 @@ export default function DashboardPage() {
     if (drawData?.participationHistory) setMyDraws(drawData.participationHistory);
     if (currentDrawData?.draw) setCurrentDraw(currentDrawData.draw);
     if (winningsData) setWinnings(winningsData);
+    if (donationData) setDonations(donationData);
   };
 
   useEffect(() => {
@@ -151,27 +154,16 @@ export default function DashboardPage() {
     }
   };
 
-  const cancelCurrentSubscription = async () => {
+  const handleSubscriptionAction = async () => {
     try {
-      setBusyAction('cancel');
-      const result = await subscriptionApi.cancel(token);
-      toast.success(result.message || 'Subscription cancelled');
+      setBusyAction('subscription');
+      const result = subscription?.isActive
+        ? await subscriptionApi.cancel(token)
+        : await subscriptionApi.remove(token);
+      toast.success(result.message || (subscription?.isActive ? 'Subscription cancelled' : 'Subscription removed'));
       await loadDashboardData();
     } catch (error) {
-      toast.error(error?.response?.data?.message || 'Unable to cancel subscription');
-    } finally {
-      setBusyAction('');
-    }
-  };
-
-  const removeCurrentSubscription = async () => {
-    try {
-      setBusyAction('remove');
-      const result = await subscriptionApi.remove(token);
-      toast.success(result.message || 'Subscription removed');
-      await loadDashboardData();
-    } catch (error) {
-      toast.error(error?.response?.data?.message || 'Unable to remove subscription');
+      toast.error(error?.response?.data?.message || 'Unable to update subscription');
     } finally {
       setBusyAction('');
     }
@@ -209,6 +201,10 @@ export default function DashboardPage() {
   const saveMyCharity = async (e) => {
     e.preventDefault();
     try {
+      if (!charitySelection.charityId) {
+        toast.error('Please select a charity');
+        return;
+      }
       const result = await charityApi.setMyCharity(token, charitySelection.charityId, Number(charitySelection.percentage));
       setMyCharity(result);
       toast.success('Charity preference updated');
@@ -222,6 +218,45 @@ export default function DashboardPage() {
     const upcomingDrawDate = currentDraw?.draw_date ? formatSimpleDate(currentDraw.draw_date) : 'TBA';
     return { drawsEntered, upcomingDrawDate };
   }, [myDraws, currentDraw]);
+
+  const submitIndependentDonation = async (e) => {
+    e.preventDefault();
+    try {
+      if (!donationForm.charityId || !donationForm.amount) {
+        toast.error('Charity and amount are required');
+        return;
+      }
+      const result = await donationApi.create(token, {
+        charityId: donationForm.charityId,
+        amount: Number(donationForm.amount),
+        note: donationForm.note || '',
+        currency: 'INR',
+      });
+      toast.success(result.message || 'Donation recorded');
+      setDonationForm((prev) => ({ ...prev, amount: '', note: '' }));
+      const donationData = await donationApi.mine(token);
+      setDonations(donationData);
+    } catch (error) {
+      toast.error(error?.response?.data?.message || 'Unable to record donation');
+    }
+  };
+
+  const submitWinnerProof = async (winnerId) => {
+    try {
+      const proofUrl = String(proofByWinnerId[winnerId] || '').trim();
+      if (!proofUrl) {
+        toast.error('Proof URL is required');
+        return;
+      }
+      await winnerApi.submitProof(token, winnerId, proofUrl);
+      toast.success('Proof submitted');
+      const latest = await winnerApi.me(token);
+      setWinnings(latest);
+      setProofByWinnerId((prev) => ({ ...prev, [winnerId]: '' }));
+    } catch (error) {
+      toast.error(error?.response?.data?.message || 'Unable to submit proof');
+    }
+  };
 
   return (
     <Layout>
@@ -248,12 +283,13 @@ export default function DashboardPage() {
               <button className="btn-secondary" onClick={() => startCheckout('yearly')} disabled={busyAction !== ''}>
                 {busyAction === 'checkout' ? 'Processing...' : 'Subscribe Yearly'}
               </button>
-              <button className="btn-secondary" onClick={cancelCurrentSubscription} disabled={busyAction !== '' || !subscription?.isActive}>
-                {busyAction === 'cancel' ? 'Cancelling...' : 'Cancel Subscription'}
-              </button>
-              <button className="btn-secondary" onClick={removeCurrentSubscription} disabled={busyAction !== '' || isNoSubscriptionState}>
-                {busyAction === 'remove' ? 'Removing...' : 'Remove Subscription'}
-              </button>
+              {hasSubscriptionRecord ? (
+                <button className="btn-secondary" onClick={handleSubscriptionAction} disabled={busyAction !== ''}>
+                  {busyAction === 'subscription'
+                    ? (subscription?.isActive ? 'Cancelling...' : 'Removing...')
+                    : (subscription?.isActive ? 'Cancel Subscription' : 'Remove Subscription')}
+                </button>
+              ) : null}
             </div>
           </div>
 
@@ -341,8 +377,10 @@ export default function DashboardPage() {
                 className="field"
                 value={charitySelection.charityId}
                 onChange={(e) => setCharitySelection((prev) => ({ ...prev, charityId: e.target.value }))}
-                disabled={!canUseSubscriberFeatures}
               >
+                {(charities || []).length === 0 ? (
+                  <option value="">No charities available</option>
+                ) : null}
                 {(charities || []).map((charity) => (
                   <option key={charity.id} value={charity.id}>{charity.name}</option>
                 ))}
@@ -354,9 +392,8 @@ export default function DashboardPage() {
                 max="100"
                 value={charitySelection.percentage}
                 onChange={(e) => setCharitySelection((prev) => ({ ...prev, percentage: e.target.value }))}
-                disabled={!canUseSubscriberFeatures}
               />
-              <button className="btn-primary w-full" type="submit" disabled={!canUseSubscriberFeatures}>Save Charity Preference</button>
+              <button className="btn-primary w-full" type="submit" disabled={!charitySelection.charityId}>Save Charity Preference</button>
             </form>
 
             <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-3 text-sm text-slate-200">
@@ -393,6 +430,71 @@ export default function DashboardPage() {
                 <p className="text-xl font-semibold">{formatCurrency(winnings.totalWinnings || 0)}</p>
               </div>
             </div>
+            <div className="mt-4 space-y-2 text-sm">
+              {(winnings.winnings || []).length === 0 ? (
+                <p className="text-slate-400">No winnings yet.</p>
+              ) : (
+                winnings.winnings.map((win) => (
+                  <div key={win.id} className="rounded-xl border border-white/10 bg-black/20 p-3">
+                    <p>Draw #{win?.draws?.draw_number || 'N/A'} · Match {win.match_type} · Prize {formatCurrency(win.prize_amount)}</p>
+                    <p className="text-slate-300">Verification: {win.verification_status} · Payout: {win.payout_status}</p>
+                    {win.verification_status === 'pending' ? (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <input
+                          className="field"
+                          placeholder="Proof URL"
+                          value={proofByWinnerId[win.id] || ''}
+                          onChange={(e) => setProofByWinnerId((prev) => ({ ...prev, [win.id]: e.target.value }))}
+                        />
+                        <button className="btn-secondary" type="button" onClick={() => submitWinnerProof(win.id)}>Submit Proof</button>
+                      </div>
+                    ) : null}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+          <h2 className="inline-flex items-center gap-2 text-lg font-semibold"><HeartHandshake size={17} /> Independent Donations</h2>
+          <p className="mt-1 text-sm text-slate-300">Make extra donations independent of gameplay.</p>
+          <form className="mt-4 grid gap-3 md:grid-cols-[1fr_140px_1fr_auto]" onSubmit={submitIndependentDonation}>
+            <select
+              className="field"
+              value={donationForm.charityId}
+              onChange={(e) => setDonationForm((prev) => ({ ...prev, charityId: e.target.value }))}
+            >
+              {(charities || []).map((charity) => (
+                <option key={charity.id} value={charity.id}>{charity.name}</option>
+              ))}
+            </select>
+            <input
+              className="field"
+              type="number"
+              min="1"
+              step="0.01"
+              placeholder="Amount"
+              value={donationForm.amount}
+              onChange={(e) => setDonationForm((prev) => ({ ...prev, amount: e.target.value }))}
+            />
+            <input
+              className="field"
+              placeholder="Note (optional)"
+              value={donationForm.note}
+              onChange={(e) => setDonationForm((prev) => ({ ...prev, note: e.target.value }))}
+            />
+            <button className="btn-primary" type="submit">Donate</button>
+          </form>
+          <div className="mt-4 text-sm text-slate-300">
+            Total independent donations: <strong>{formatCurrency(donations.totalAmount || 0)}</strong>
+          </div>
+          <div className="mt-3 space-y-2 text-sm">
+            {(donations.donations || []).slice(0, 10).map((d) => (
+              <div key={d.id} className="rounded-xl border border-white/10 bg-black/20 px-3 py-2">
+                <span>{d?.charities?.name || d.charity_id} · {formatCurrency(d.amount)} · {formatSimpleDate(d.created_at)}</span>
+              </div>
+            ))}
           </div>
         </div>
       </section>
